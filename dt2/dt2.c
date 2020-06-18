@@ -427,6 +427,7 @@ int do_write(int fd, int count, int mode)
 
 int send_break(int fd)
 {
+	if (DEBUG) fputs("send BREAK\n", stderr);
 	if (tcdrain(fd) == -1) return -1;
 	if (tcsendbreak(fd, 0) == -1) return -1;
 	return tcflush(fd, TCIFLUSH);
@@ -435,7 +436,7 @@ int send_break(int fd)
 
 int send_init(int fd)
 {
-	if (DEBUG) fputs("send INIT", stderr);
+	if (DEBUG) fputs("send INIT\n", stderr);
 	CMD[0] = PKT_INIT;
 	if (write_buf(fd, CMD, 1) < 1) return -1;
 	return 0;
@@ -444,7 +445,7 @@ int send_init(int fd)
 
 int send_boot(int fd, int dnum)
 {
-	if (DEBUG) fputs("send BOOT", stderr);
+	if (DEBUG) fputs("send BOOT\n", stderr);
 	CMD[0] = PKT_BOOT;
 	CMD[1] = dnum;
 	if (write_buf(fd, CMD, 2) < 2) return -1;
