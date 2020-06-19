@@ -70,7 +70,7 @@ int UMAX = 255;			/* maximum unit number, normally 0 or 1 for a real TU58 */
 #define MODE_RSP  1
 #define MODE_MRSP 2
 int MODE = MODE_RSP;
-int FLAG_MRSP_NEXT = 0;
+int FLAG_MRSP = 0;
 
 /* current drive number */
 int UNIT = 0;
@@ -83,7 +83,7 @@ size_t BSIZE = 512;
 int BCOUNT = 512;
 
 /* buffers */
-uint8_t RECV;
+uint8_t RECV, SEND;
 uint8_t CMD[14];
 uint8_t BUF[512];
 struct termios TIO_SAVE;
@@ -123,7 +123,6 @@ int main(int argc, char **argv)
 		if (strcmp(*argv, "-m") == 0)
 		{
 			MODE = MODE_MRSP;
-			FLAG_MRSP_NEXT = 1;
 			argv++;
 			--argc;
 			continue;
@@ -139,6 +138,11 @@ int main(int argc, char **argv)
 		{
 			argv++;
 			--argc;
+			break;
+		}
+		else
+		{
+			fprintf(stderr, "unrecognized option: %s\n", *argv);
 			break;
 		}
 		argc = 0;
@@ -214,8 +218,14 @@ int main(int argc, char **argv)
 		else if (strcasecmp(cmd, "blocksize") == 0)
 		{
 			if ((num != 128) && (num != 512)) break;
+			BCOUNT = (BCOUNT * BSIZE) / num;
 			BSIZE = num;
-			BCOUNT = (BSIZE == 128) ? 2048 : 512;
+		}
+		else if (strcasecmp(cmd, "blockcount") == 0)
+		{
+			if ((num <= 0) || (num > 65536)) break;
+			if ((BSIZE == 128) && ((num % 4) != 0)) break;
+			BCOUNT = num;
 		}
 		else
 		{
@@ -256,6 +266,7 @@ int usage(char *pname)
 	fputs(" write [block_count] - write blocks\n", stderr);
 	fputs(" writev [block_count] - write and verify blocks\n", stderr);
 	fputs(" blocksize {128|512} - set current block size\n", stderr);
+	fputs(" blockcount block_count - set current tape capacity\n", stderr);
 	return 1;
 }
 
@@ -328,7 +339,14 @@ int do_init(int fd)
 	if (send_break(fd) < 0) return -1;
 	if (send_init(fd) < 0) return -1;
 	if (send_init(fd) < 0) return -1;
-	if (recv_continue(fd) < 0) return -1;
+	int rc = recv_continue(fd);
+	if (rc == -2)
+	{
+		if (send_break(fd) < 0) return -1;
+		if (send_init(fd) < 0) return -1;
+		if (send_init(fd) < 0) return -1;
+		if (recv_continue(fd) < 0) return -1;
+	}
 	return 0;
 }
 
@@ -476,6 +494,12 @@ int send_write(int fd, int dnum, int bnum, int count, int mod)
 
 int send_cmd(int fd, int op, int dnum, int bnum, int count, int mod)
 {
+	if (FLAG_MRSP)
+	{
+		if (DEBUG) fputs(" w/ CONT", stderr);
+		SEND = PKT_CONT;
+		if (write_buf(fd, &SEND, 1) < 1) return -1;
+	}
 	CMD[0] = PKT_CMD;
 	CMD[1] = 10;
 	CMD[2] = op;
@@ -493,19 +517,27 @@ int send_cmd(int fd, int op, int dnum, int bnum, int count, int mod)
 	CMD[13] = hi(sum);
 	if (DEBUG) fprintf(stderr, " op=%d mod=%d unit=%d sw=%d bnum=%d ct=%d ck=0x%4x\n", CMD[2], CMD[3], CMD[4], CMD[5], bnum, count, sum);
 	if(write_buf(fd, CMD, 14) < 14) return -1;
+	if (MODE == MODE_MRSP) FLAG_MRSP = 1;
 	return 0;
 }
 
 
 int send_data(int fd, int count)
 {
+	if (DEBUG) fputs("send DATA", stderr);
+	if (FLAG_MRSP)
+	{
+		if (DEBUG) fputs(" w/ CONT", stderr);
+		SEND = PKT_CONT;
+		if (write_buf(fd, &SEND, 1) < 1) return -1;
+	}
 	BUF[0] = PKT_DATA;
 	BUF[1] = count;
 	if (read_buf(0, BUF + 2, count) < count) return -1;
 	int sum = cksum_buf(BUF, count += 2);
 	BUF[count++] = lo(sum);
 	BUF[count++] = hi(sum);
-	if (DEBUG) fprintf(stderr, "send DATA ct=%d ck=0x%4x\n", count - 2, sum);
+	if (DEBUG) fprintf(stderr, " ct=%d ck=0x%4x\n", count - 2, sum);
 	if (write_buf(fd, BUF, count) < count) return -1;
 	return 0;
 }
@@ -517,6 +549,7 @@ int recv_continue(fd)
 	if (read_buf(fd, &RECV, 1) < 1) return -1;
 	if (DEBUG) fprintf(stderr, " flag=%d\n", RECV);
 	if (RECV == PKT_CONT) return 0;
+	if (RECV == PKT_CMD) return -2;
 	if (RECV == PKT_INIT) do_init(fd);
 	return -1;
 }
@@ -526,11 +559,28 @@ int recv_continue(fd)
 int recv_end(fd)
 {
 	if (DEBUG) fputs("recv END", stderr);
+	if (FLAG_MRSP)
+	{
+		if (DEBUG) fputs(" w/ CONT", stderr);
+		SEND = PKT_CONT;
+		if (write_buf(fd, &SEND, 1) < 1) return -1;
+	}
 	if (read_buf(fd, &RECV, 1) < 1) return -1;
 	if (RECV == PKT_CMD)
 	{
 		CMD[0] = RECV;
-		if (read_buf(fd, CMD + 1, 13) < 13) return -1;
+		int count = 13;
+		int p = 1;
+		while (count-- > 0)
+		{
+			if (FLAG_MRSP)
+			{
+				SEND = PKT_CONT;
+				if (write_buf(fd, &SEND, 1) < 1) return -1;
+			}
+			if (read_buf(fd, CMD + p, 1) < 1) return -1;
+			p++;
+		}
 		int len = CMD[8] + (CMD[9] << 8);
 		int stat = CMD[10] + (CMD[11] << 8);
 		int sum = cksum_buf(CMD, 12);
