@@ -1,5 +1,5 @@
 # Tools
-Miscellaneous tools small enough to not warrant their own separate repository
+Miscellaneous tools that aren't big enough to need their own separate repository
 
-### dt2
-A DECtape II (TU58) tape manipulation program, written in C.
+**dt2**
+A DECtape II (TU58) tape manipulation program, written in C.  Can be used to read and write blocks from tape.
