@@ -19,9 +19,9 @@ CHDEV="${3}"
 DTYPE="${4}"
 DNUM="${5}"
 STYPE="${6}"
-MINSLOT="${7}"
-MAXSLOT="${8}"
-CURSLOT="${9}"
+CURSLOT="${7}"
+MINSLOT="${8}"
+MAXSLOT="${9}"
 shift 9
 
 if [ ! -c /dev/${CHDEV} ]; then
@@ -30,14 +30,14 @@ fi
 if [ ! 0 -le ${DNUM} ]; then
 	echo "Error: /etc/autodumptab drive number ${DNUM} not valid" >&2
 fi
+if [ ! 0 -le ${CURSLOT} ]; then
+	echo "Error: /etc/autodumptab current slot ${CURSLOT} not valid" >&2
+fi
 if [ ! 0 -le ${MINSLOT} ]; then
 	echo "Error: /etc/autodumptab min slot ${MINSLOT} not valid" >&2
 fi
 if [ ! 0 -le ${MAXSLOT} ]; then
 	echo "Error: /etc/autodumptab max slot ${MAXSLOT} not valid" >&2
-fi
-if [ ! 0 -le ${CURSLOT} ]; then
-	echo "Error: /etc/autodumptab current slot ${CURSLOT} not valid" >&2
 fi
 if [ ! 1 -le ${#} ]; then
 	echo "Error: /etc/autodumptab dump args missing" >&2
@@ -75,7 +75,7 @@ while true; do
 done
 
 cp "/etc/autodumptab" "/etc/autodumptab.old"
-sed -e"\\|^${FS} ${LEVEL} | s|.*|${FS} ${LEVEL} ${CHDEV} ${DTYPE} ${DNUM} ${STYPE} ${MINSLOT} ${MAXSLOT} ${NEWSLOT} ${*}|" </etc/autodumptab.old >/etc/autodumptab
+sed -e"\\|^${FS} ${LEVEL} | s|.*|${FS} ${LEVEL} ${CHDEV} ${DTYPE} ${DNUM} ${STYPE} ${NEWSLOT} ${MINSLOT} ${MAXSLOT} ${*}|" </etc/autodumptab.old >/etc/autodumptab
 rm -f "/tmp/autodump.lock"
 
 exit "${RC}"
