@@ -43,19 +43,19 @@ if [ ! 1 -le ${#} ]; then
 	echo "Error: /etc/autodumptab dump args missing" >&2
 fi
 
-BARCODE=`chio -f "/dev/${CHDEV}" status -v ${STYPE} | sed -e"/^${STYPE} ${CURSLOT}:/!d" -e"s/^.*<//" -e"s/:0>$//"`
+BARCODE=`chio -f "/dev/${CHDEV}" status -v "${STYPE}" | sed -e"/^${STYPE} ${CURSLOT}:/!d" -e"s/^.*<//" -e"s/:0>$//"`
 if [ X"${BARCODE}" != X"" ]; then
 	echo "Barcode: ${BARCODE}"
 	echo
 fi
 
-echo chio -f "/dev/${CHDEV}" move ${STYPE} "${CURSLOT}" ${DTYPE} "${DRIVE}"
-chio -f "/dev/${CHDEV}" move ${STYPE} "${CURSLOT}" ${DTYPE} "${DRIVE}"
+echo chio -f "/dev/${CHDEV}" move "${STYPE}" "${CURSLOT}" "${DTYPE}" "${DRIVE}"
+chio -f "/dev/${CHDEV}" move "${STYPE}" "${CURSLOT}" "${DTYPE}" "${DRIVE}"
 echo "$@"
 "$@"
 RC="$?"
-echo chio -f "/dev/${CHDEV}" move ${DTYPE} "${DRIVE}" ${STYPE} "${CURSLOT}"
-chio -f "/dev/${CHDEV}" move ${DTYPE} "${DRIVE}" ${STYPE} "${CURSLOT}"
+echo chio -f "/dev/${CHDEV}" move "${DTYPE}" "${DRIVE}" "${STYPE}" "${CURSLOT}"
+chio -f "/dev/${CHDEV}" move "${DTYPE}" "${DRIVE}" "${STYPE}" "${CURSLOT}"
 
 unset NEWSLOT
 if [ ${MINSLOT} -lt ${MAXSLOT} ]; then
