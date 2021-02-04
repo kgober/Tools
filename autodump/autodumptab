@@ -1,0 +1,3 @@
+# FS Level ChangerDev DriveNum MinSlot MaxSlot CurSlot Command
+/nfs/data 0 ch1 0 0 0 0 dump -0au -b 64 -f /dev/rst3 /nfs/data
+/nfs/data 1 ch0 0 0 14 10 dump -1au -b 64 -f /dev/rst1 /nfs/data
