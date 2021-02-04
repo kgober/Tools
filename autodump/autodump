@@ -1,0 +1,79 @@
+#!/bin/sh
+
+if [ X"$1" == X"" ]; then
+        echo "Usage: autodump filesys [level]" >&2
+        exit 2
+elif [ ! -f /etc/autodumptab ]; then
+        echo "Error: /etc/autodumptab not found" >&2
+        exit 1
+fi
+
+set -- `grep "^${1} ${2:-0} " /etc/autodumptab`
+if [ ${#} -lt 8 ]; then
+        echo "Error: /etc/autodumptab missing fields" >&2
+        exit 1
+fi
+FS="${1}"
+LEVEL="${2}"
+CHDEV="${3}"
+DRIVE="${4}"
+MINSLOT="${5}"
+MAXSLOT="${6}"
+CURSLOT="${7}"
+shift 7
+
+if [ ! -c /dev/${CHDEV} ]; then
+        echo "Error: /etc/autodumptab changer device /dev/${CHDEV} not found" >&2
+fi
+if [ ! 0 -le ${DRIVE} ]; then
+        echo "Error: /etc/autodumptab drive number ${DRIVE} not valid" >&2
+fi
+if [ ! 0 -le ${MINSLOT} ]; then
+        echo "Error: /etc/autodumptab min slot ${MINSLOT} not valid" >&2
+fi
+if [ ! 0 -le ${MAXSLOT} ]; then
+        echo "Error: /etc/autodumptab max slot ${MAXSLOT} not valid" >&2
+fi
+if [ ! 0 -le ${CURSLOT} ]; then
+        echo "Error: /etc/autodumptab current slot ${CURSLOT} not valid" >&2
+fi
+if [ ! 1 -le ${#} ]; then
+        echo "Error: /etc/autodumptab dump args missing" >&2
+fi
+
+BARCODE=`chio -f "/dev/${CHDEV}" status -v slot | sed -e"/^slot ${CURSLOT}:/!d" -e"s/^.*<//" -e"s/:0>$//"`
+if [ X"${BARCODE}" != X"" ]; then
+        echo "Barcode: ${BARCODE}"
+        echo
+fi
+
+echo chio -f "/dev/${CHDEV}" move slot "${CURSLOT}" drive "${DRIVE}"
+chio -f "/dev/${CHDEV}" move slot "${CURSLOT}" drive "${DRIVE}"
+echo "$@"
+"$@"
+RC="$?"
+echo chio -f "/dev/${CHDEV}" move drive "${DRIVE}" slot "${CURSLOT}"
+chio -f "/dev/${CHDEV}" move drive "${DRIVE}" slot "${CURSLOT}"
+
+unset NEWSLOT
+if [ ${MINSLOT} -lt ${MAXSLOT} ]; then
+        NEWSLOT="$((${CURSLOT} + 1))"
+        if [ ${NEWSLOT} -gt ${MAXSLOT} ]; then NEWSLOT="${MINSLOT}"; fi
+elif [ ${MINSLOT} -gt ${MAXSLOT} ]; then
+        NEWSLOT="$((${CURSLOT} - 1))"
+        if [ ${NEWSLOT} -lt ${MINSLOT} ]; then NEWSLOT="${MAXSLOT}"; fi
+fi
+if [ X"${NEWSLOT}" == X"" ]; then exit "${RC}"; fi
+
+while true; do
+        while [ -f "/tmp/autodump.lock" ]; do sleep 1; done
+        echo "$$" >/tmp/autodump.lock
+        sleep 1
+        if [ $$ == `cat /tmp/autodump.lock` ]; then break; fi
+done
+
+cp "/etc/autodumptab" "/etc/autodumptab.old"
+sed -e"\\|^${FS} ${LEVEL} | s|.*|${FS} ${LEVEL} ${CHDEV} ${DRIVE} ${MINSLOT} ${MAXSLOT} ${NEWSLOT} ${*}|" </etc/autodumptab.old >/etc/autodumptab
+rm -f "/tmp/autodump.lock"
+
+exit "${RC}"
