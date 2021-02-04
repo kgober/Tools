@@ -17,7 +17,7 @@ FS="${1}"
 LEVEL="${2}"
 CHDEV="${3}"
 DTYPE="${4}"
-DRIVE="${5}"
+DNUM="${5}"
 STYPE="${6}"
 MINSLOT="${7}"
 MAXSLOT="${8}"
@@ -27,8 +27,8 @@ shift 9
 if [ ! -c /dev/${CHDEV} ]; then
 	echo "Error: /etc/autodumptab changer device /dev/${CHDEV} not found" >&2
 fi
-if [ ! 0 -le ${DRIVE} ]; then
-	echo "Error: /etc/autodumptab drive number ${DRIVE} not valid" >&2
+if [ ! 0 -le ${DNUM} ]; then
+	echo "Error: /etc/autodumptab drive number ${DNUM} not valid" >&2
 fi
 if [ ! 0 -le ${MINSLOT} ]; then
 	echo "Error: /etc/autodumptab min slot ${MINSLOT} not valid" >&2
@@ -49,13 +49,13 @@ if [ X"${BARCODE}" != X"" ]; then
 	echo
 fi
 
-echo chio -f "/dev/${CHDEV}" move "${STYPE}" "${CURSLOT}" "${DTYPE}" "${DRIVE}"
-chio -f "/dev/${CHDEV}" move "${STYPE}" "${CURSLOT}" "${DTYPE}" "${DRIVE}"
+echo chio -f "/dev/${CHDEV}" move "${STYPE}" "${CURSLOT}" "${DTYPE}" "${DNUM}"
+chio -f "/dev/${CHDEV}" move "${STYPE}" "${CURSLOT}" "${DTYPE}" "${DNUM}"
 echo "$@"
 "$@"
 RC="$?"
-echo chio -f "/dev/${CHDEV}" move "${DTYPE}" "${DRIVE}" "${STYPE}" "${CURSLOT}"
-chio -f "/dev/${CHDEV}" move "${DTYPE}" "${DRIVE}" "${STYPE}" "${CURSLOT}"
+echo chio -f "/dev/${CHDEV}" move "${DTYPE}" "${DNUM}" "${STYPE}" "${CURSLOT}"
+chio -f "/dev/${CHDEV}" move "${DTYPE}" "${DNUM}" "${STYPE}" "${CURSLOT}"
 
 unset NEWSLOT
 if [ ${MINSLOT} -lt ${MAXSLOT} ]; then
@@ -75,7 +75,7 @@ while true; do
 done
 
 cp "/etc/autodumptab" "/etc/autodumptab.old"
-sed -e"\\|^${FS} ${LEVEL} | s|.*|${FS} ${LEVEL} ${CHDEV} ${DTYPE} ${DRIVE} ${STYPE} ${MINSLOT} ${MAXSLOT} ${NEWSLOT} ${*}|" </etc/autodumptab.old >/etc/autodumptab
+sed -e"\\|^${FS} ${LEVEL} | s|.*|${FS} ${LEVEL} ${CHDEV} ${DTYPE} ${DNUM} ${STYPE} ${MINSLOT} ${MAXSLOT} ${NEWSLOT} ${*}|" </etc/autodumptab.old >/etc/autodumptab
 rm -f "/tmp/autodump.lock"
 
 exit "${RC}"
