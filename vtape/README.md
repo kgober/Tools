@@ -39,3 +39,7 @@ Create a SIMH virtual Unix v7 addenda tar tape:
 > write from standard input (71 10240-byte records)  
 > write file mark  
 > write file mark
+
+Append a file mark to the end of a tape:
+> $ vtape -v -- -m >>tape.img  
+> write file mark

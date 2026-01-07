@@ -60,6 +60,11 @@ int main(int argc, char **argv)
 			while (*(++arg))
 			{
 				if ((*arg == '?') || (*arg == 'h')) usage(cmd, 0);
+				if (*arg == '-') /* -- */
+				{
+					fflag = 1;
+					continue;
+				}
 				if (*arg == 'v') /* -v */
 				{
 					VERBOSE = 1;
@@ -149,9 +154,10 @@ void usage(const char *command, int status)
 	fprintf(stderr, "  -M            - write a file mark before the next file\n");
 	fprintf(stderr, "  -p            - pad the next file to fill its last record\n");
 	fprintf(stderr, "  -v            - display status information\n");
-	fprintf(stderr, "  -             - write standard input\n");
-	fprintf(stderr, "If no file arguments are given, standard input is assumed.\n");
+	fprintf(stderr, "  -             - write standard input (default if no files given)\n");
+	fprintf(stderr, "  --            - don't write standard input (suppress '-' default)\n");
 	fprintf(stderr, "-m with no next file will write a file mark after the last file.\n");
+	fprintf(stderr, "repeat -m or -M options to write multiple file marks.\n");
 	exit(status);
 }
 
