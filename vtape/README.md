@@ -13,7 +13,8 @@ vtape [_options_] [[-f] _filename_] ...
 -M - append a virtual file mark before the next file (i.e. immediately)  
 -p - pad next file to a multiple of the tape record size (i.e. pad last record)  
 -v - display status information  
-using - by itself writes standard input to standard output in SIMH virtual tape format (assumed if no files are specified)
+using - by itself writes standard input to standard output in SIMH virtual tape format (assumed if no files are specified)  
+use -- to disable default writing of standard input
 
 ### Examples
 Create a SIMH virtual Unix v7 distribution tape from the seven files f0 through f6:
