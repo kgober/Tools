@@ -1,6 +1,6 @@
 /*
  * vtape.c - convert a file into a SIMH virtual tape image
- * Copyright (C) 2025 Kenneth Gober
+ * Copyright (C) 2025,2026 Kenneth Gober
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -18,7 +18,8 @@
  * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
  * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
- * SOFTWARE. */
+ * SOFTWARE.
+ */
 
 #include <err.h>
 #include <fcntl.h>
@@ -37,7 +38,8 @@ void write_int32(int fd, int value);
 size_t RECORD_SIZE = 512;	/* default: 512-byte records */
 int FILE_MARK = 0;		/* default: do not append tape mark after next file */
 int FILE_PAD = 0;		/* default: do not pad final record of next file */
-int VERBOSE = 0;		/* default: do not write status to standard output */
+int TAPE_MARK = 0;		/* default: do not append end-of-tape mark at end */
+int VERBOSE = 0;		/* default: do not write status to standard error */
 
 int main(int argc, char **argv)
 {
@@ -86,11 +88,16 @@ int main(int argc, char **argv)
 					write_int32(STDOUT_FILENO, 0);
 					continue;
 				}
+				if (*arg == 't') /* -t */
+				{
+					TAPE_MARK = 1;
+					continue;
+				}
 				if (*arg == 'n') /* -n recordsize */
 				{
 					if (*(++arg) == 0) arg = *(++argv);
 					if (arg == NULL) usage(cmd, 1);
-					int n = strtonum(arg, 1, 65536, NULL);
+					int n = strtonum(arg, 1, 1048576, NULL);
 					if (n == 0) err(1, "error processing -n argument");
 					RECORD_SIZE = n;
 					break;
@@ -99,7 +106,7 @@ int main(int argc, char **argv)
 				{
 					if (*(++arg) == 0) arg = *(++argv);
 					if (arg == NULL) usage(cmd, 1);
-					if (VERBOSE) fprintf(stderr, "write file %s", arg);
+					if (VERBOSE) fprintf(stderr, "write from file %s", arg);
 					int n = open(arg, O_RDONLY);
 					if (n == -1) err(1, "error opening file %s", arg);
 					write_file(n);
@@ -114,7 +121,7 @@ int main(int argc, char **argv)
 		}
 
 		/* assume non-option arguments are file names */
-		if (VERBOSE) fprintf(stderr, "write file %s", arg);
+		if (VERBOSE) fprintf(stderr, "write from file %s", arg);
 		int fd = open(arg, O_RDONLY);
 		if (fd == -1) err(1, "error opening file %s", arg);
 		write_file(fd);
@@ -138,6 +145,12 @@ int main(int argc, char **argv)
 		FILE_MARK--;
 	}
 
+	if (TAPE_MARK != 0)
+	{
+		if (VERBOSE) fprintf(stderr, "write end-of-tape mark\n");
+		write_int32(STDOUT_FILENO, -1);
+	}
+
 	return 0;
 }
 
@@ -152,10 +165,11 @@ void usage(const char *command, int status)
 	fprintf(stderr, "  -f filename   - write the named file (-f may be omitted)\n");
 	fprintf(stderr, "  -m            - write a file mark after the next file\n");
 	fprintf(stderr, "  -M            - write a file mark before the next file\n");
+	fprintf(stderr, "  -t            - write an end-of-tape mark at the very end\n");
 	fprintf(stderr, "  -p            - pad the next file to fill its last record\n");
 	fprintf(stderr, "  -v            - display status information\n");
-	fprintf(stderr, "  -             - write standard input (default if no files given)\n");
-	fprintf(stderr, "  --            - don't write standard input (suppress '-' default)\n");
+	fprintf(stderr, "  -             - write from standard input (default if no files given)\n");
+	fprintf(stderr, "  --            - don't write from standard input (suppress '-' default)\n");
 	fprintf(stderr, "-m with no next file will write a file mark after the last file.\n");
 	fprintf(stderr, "repeat -m or -M options to write multiple file marks.\n");
 	exit(status);
@@ -167,7 +181,7 @@ void write_file(int fd)
 	int8_t *buf;
 	size_t ct, last_ct;
 
-	if ((buf = malloc(RECORD_SIZE)) == NULL) err(1, "unable to allocate memory");
+	if ((buf = malloc(RECORD_SIZE)) == NULL) err(1, "unable to initialize buffer");
 
 	int n = 0;
 	while ((ct = read_buffer(fd, buf, RECORD_SIZE)) > 0)
@@ -194,24 +208,25 @@ void write_file(int fd)
 		n++;
 		last_ct = ct;
 	}
+	free(buf);
 
 	if (VERBOSE)
 	{
 		if (n == 1)
 		{
-			fprintf(stderr, " (1 %lu-byte record)\n", last_ct);
+			fprintf(stderr, " (1 %zu-byte record)\n", last_ct);
 		}
 		else if (last_ct == RECORD_SIZE)
 		{
-			fprintf(stderr, " (%d %lu-byte records)\n", n, RECORD_SIZE);
+			fprintf(stderr, " (%d %zu-byte records)\n", n, RECORD_SIZE);
 		}
 		else if (n == 2)
 		{
-			fprintf(stderr, " (1 %lu-byte record, 1 %lu-byte record)\n", RECORD_SIZE, last_ct);
+			fprintf(stderr, " (1 %zu-byte record, 1 %zu-byte record)\n", RECORD_SIZE, last_ct);
 		}
 		else
 		{
-			fprintf(stderr, " (%d %lu-byte records, 1 %lu-byte record)\n", n - 1, RECORD_SIZE, last_ct);
+			fprintf(stderr, " (%d %zu-byte records, 1 %zu-byte record)\n", n - 1, RECORD_SIZE, last_ct);
 		}
 	}
 
